@@ -1,3 +1,6 @@
+// hardcoded path. change this!
+loadScript("/Users/jeffrey/dev/ethereum/payment_channel/util.js");
+
 var account = shh.newIdentity()
     // name of our application
     name = "payment_channels";
@@ -21,6 +24,13 @@ function post(payload) {
 // payment filter
 shh.filter({to: account, topics:[name, "payment"]}, function(err, res) {
 	console.log("payment received on channel");
+
+    var payment = JSON.parse(web3.toAscii(res.payload));
+    if( !channel.verify(eth.accounts[0], payment.amount, payment.sig.v, payment.sig.r, payment.sig.s) ) {
+        console.log("Payment received invalid");
+        inspect(payment)
+    }
+
 	post(res);
 });
 
@@ -30,4 +40,4 @@ shh.filter({to: account, topics:[name, "ready"]}, function(err, res) {
 });
 
 // setup filter
-shh.post({topics:[name, "setup"], from: account, payload: numbers.length});
+shh.post({topics:[name, "setup"], from: account, payload: eth.accounts[0]});
