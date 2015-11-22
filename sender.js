@@ -21,12 +21,13 @@ function post(payload) {
 	index++;
 }
 
+var paymentChannel;
 // payment filter
 shh.filter({to: account, topics:[name, "payment"]}, function(err, res) {
 	console.log("payment received on channel");
 
     var payment = JSON.parse(web3.toAscii(res.payload));
-    if( !channel.verify(eth.accounts[0], payment.amount, payment.sig.v, payment.sig.r, payment.sig.s) ) {
+    if( !channel.verify(paymentChannel, eth.accounts[0], payment.amount, payment.sig.v, payment.sig.r, payment.sig.s) ) {
         console.log("Payment received invalid");
         inspect(payment)
     }
@@ -36,6 +37,9 @@ shh.filter({to: account, topics:[name, "payment"]}, function(err, res) {
 
 // initial filter 
 shh.filter({to: account, topics:[name, "ready"]}, function(err, res) {
+    paymentChannel = res.payload;
+    console.log("Using channel:", paymentChannel);
+
 	post(res);
 });
 

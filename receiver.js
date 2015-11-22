@@ -28,32 +28,40 @@ var id = shh.filter({topics: [name, "setup"]}, function(error, res) {
 
     var recipient = res.payload;
 
-    // let the other side know we're ready for receiving content
-	shh.post({to: res.from, from: account, topics:[name, "ready"]});
-
     // get the nonce
 	var nonce = eth.getTransactionCount(eth.accounts[0]);
 
-    // timeout variable for timing out payments
-	var timeout;
+    var filter = channel.NewChannel({}, function(e, ev) {
+        console.log("new channel created:");
+        inspect(res);
 
-    // delivery channel
-	var paymentChannel = shh.filter({topics:[name, "deliver"], from: res.from}, function(error, res) {
-        // clear previous timeout
-		clearTimeout(timeout);
+        // let the other side know we're ready for receiving content
+        shh.post({to: res.from, from: account, topics:[name, "ready"], payload: ev.args.channel});
 
-		console.log("Content (", res.payload, ") received. Paying using channel");
 
-		var amount = initial + (increment * i);
-        // create transaction for the payment channel
-        var payment = JSON.stringify({sig: sign(eth.accounts[0], recipient, amount), amount: amount});
-        // broadcast payment to recipient
-		shh.post({topics:[name, "payment"], to: res.from, from: account, payload: payment});
+        // timeout variable for timing out payments
+        var timeout;
+        // delivery channel
+        var paymentChannel = shh.filter({topics:[name, "deliver"], from: res.from}, function(error, res) {
+            if( timeout ) {
+                // clear previous timeout
+                clearTimeout(timeout);
+            }
 
-        // update timeout handler
-		timeout = createTimeout(paymentChannel);
-	});
+            console.log("Content (", res.payload, ") received. Paying using channel");
+
+            var amount = initial + (increment * i);
+            // create transaction for the payment channel
+            var payment = JSON.stringify({sig: sign(ev.args.channel, eth.accounts[0], recipient, amount), amount: amount});
+            // broadcast payment to recipient
+            shh.post({topics:[name, "payment"], to: res.from, from: account, payload: payment});
+
+            // update timeout handler
+            timeout = createTimeout(paymentChannel);
+        });
+    });
+    channel.createChannel({from:eth.accounts[0], gas:1000000});
 
     // setup initial timeout handler
-	timeout = createTimeout(paymentChannel);
+	//timeout = createTimeout(paymentChannel);
 });
