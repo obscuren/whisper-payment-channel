@@ -4,7 +4,7 @@ personal.unlockAccount(eth.accounts[0], "")
 
 var receiver = shh.newIdentity()
     sender = shh.newIdentity()
-    numbers = [1,2,3,3,4,5,6,7,3,4,8,9,10,100,21,84,12]
+    numbers = [3,1,4,1,5,9,2,6,5,3,5,8,9,7,9,3,2,3,8];
     index = 0;
 
 var tx = new PaymentChannel(eth.accounts[0], sender, receiver, PaymentChannel.payer);
@@ -14,11 +14,15 @@ tx.onPayload = function(payload) {
 };
 var rx = new PaymentChannel(eth.accounts[0], receiver, sender, PaymentChannel.beneficiary);
 rx.onPayment = function(error, payment) {
+    if( error ) {
+        console.log("invalid payment:", error);
+        return false;
+    }
+
     console.log("received payment", payment);
-    // post next
-    this.post();
+    return true;
 };
-rx.onPost = function() {
+rx.data = function() {
 	// either run out of numbers or quit randomly
 	if( index == numbers.length) {
 		console.log("done")

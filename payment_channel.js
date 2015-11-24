@@ -39,9 +39,21 @@ PaymentChannel.prototype.start = function() {
 
 PaymentChannel.prototype.onPayload = function(){console.log("onPayload not set");};
 PaymentChannel.prototype.onPayment = function(){console.log("onPayment not set");};
-PaymentChannel.prototype.onPost = function(){return false;};
+PaymentChannel.prototype.data = function(){console.log("data not set"); return false;};
+
+PaymentChannel.prototype.getData = function() {
+    if( typeof this.data === "function" )
+        return this.data();
+    else if( typeof this.data === "object" )
+        return JSON.stringify( this.data );
+    else if( typeof this.data === "string" )
+        return web3.toHex( this.data );
+    else 
+        return this.data;
+};
+
 PaymentChannel.prototype.post = function() {
-    var payload = this.onPost();
+    var payload = this.getData();
     if( payload === false ) {
         shh.post({
             from: this.me,
@@ -68,7 +80,9 @@ PaymentChannel.prototype.setupBeneficiary = function() {
             if( !channel.verify(paymentChannel.channelId, paymentChannel.account, payment.amount, payment.sig.v, payment.sig.r, payment.sig.s) ) {
                 error = "Payment received invalid";
             }
-            paymentChannel.onPayment(error, payment);
+            if( paymentChannel.onPayment(error, payment) ) {
+                paymentChannel.post();
+            }
         });
         paymentChannel.post();
     });
