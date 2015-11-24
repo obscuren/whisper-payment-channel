@@ -1,8 +1,8 @@
-var channelContract = web3.eth.contract([{"constant":true,"inputs":[{"name":"channel","type":"bytes32"}],"name":"isValidChannel","outputs":[{"name":"","type":"bool"}],"type":"function"},{"constant":false,"inputs":[],"name":"createChannel","outputs":[],"type":"function"},{"constant":true,"inputs":[{"name":"channel","type":"bytes32"},{"name":"recipient","type":"address"},{"name":"amount","type":"uint256"},{"name":"v","type":"uint8"},{"name":"r","type":"bytes32"},{"name":"s","type":"bytes32"}],"name":"verify","outputs":[{"name":"","type":"bool"}],"type":"function"},{"constant":false,"inputs":[{"name":"channel","type":"bytes32"},{"name":"recipient","type":"address"},{"name":"amount","type":"uint256"},{"name":"v","type":"uint8"},{"name":"r","type":"bytes32"},{"name":"s","type":"bytes32"}],"name":"claim","outputs":[],"type":"function"},{"constant":true,"inputs":[{"name":"","type":"bytes32"}],"name":"channels","outputs":[{"name":"owner","type":"address"},{"name":"value","type":"uint256"},{"name":"validUntil","type":"uint256"},{"name":"valid","type":"bool"}],"type":"function"},{"constant":true,"inputs":[{"name":"channel","type":"bytes32"}],"name":"getChannelValidUntil","outputs":[{"name":"","type":"uint256"}],"type":"function"},{"constant":false,"inputs":[{"name":"channel","type":"bytes32"}],"name":"reclaim","outputs":[],"type":"function"},{"constant":true,"inputs":[{"name":"channel","type":"bytes32"},{"name":"recipient","type":"address"},{"name":"amount","type":"uint256"}],"name":"getHash","outputs":[{"name":"","type":"bytes32"}],"type":"function"},{"constant":true,"inputs":[{"name":"channel","type":"bytes32"}],"name":"getChannelOwner","outputs":[{"name":"","type":"address"}],"type":"function"},{"constant":false,"inputs":[{"name":"channel","type":"bytes32"}],"name":"deposit","outputs":[],"type":"function"},{"constant":true,"inputs":[{"name":"channel","type":"bytes32"}],"name":"getChannelValue","outputs":[{"name":"","type":"uint256"}],"type":"function"},{"inputs":[],"type":"constructor"},{"anonymous":false,"inputs":[{"indexed":true,"name":"owner","type":"address"},{"indexed":false,"name":"channel","type":"bytes32"}],"name":"NewChannel","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"name":"owner","type":"address"},{"indexed":true,"name":"channel","type":"bytes32"}],"name":"Deposit","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"name":"channel","type":"bytes32"}],"name":"Reclaim","type":"event"}]);
+var channelContract = web3.eth.contract([{"constant":true,"inputs":[{"name":"channel","type":"bytes32"}],"name":"isValidChannel","outputs":[{"name":"","type":"bool"}],"type":"function"},{"constant":false,"inputs":[],"name":"createChannel","outputs":[],"type":"function"},{"constant":true,"inputs":[{"name":"channel","type":"bytes32"},{"name":"recipient","type":"address"},{"name":"value","type":"uint256"},{"name":"v","type":"uint8"},{"name":"r","type":"bytes32"},{"name":"s","type":"bytes32"}],"name":"verify","outputs":[{"name":"","type":"bool"}],"type":"function"},{"constant":false,"inputs":[{"name":"channel","type":"bytes32"},{"name":"recipient","type":"address"},{"name":"value","type":"uint256"},{"name":"v","type":"uint8"},{"name":"r","type":"bytes32"},{"name":"s","type":"bytes32"}],"name":"claim","outputs":[],"type":"function"},{"constant":true,"inputs":[{"name":"","type":"bytes32"}],"name":"channels","outputs":[{"name":"owner","type":"address"},{"name":"value","type":"uint256"},{"name":"validUntil","type":"uint256"},{"name":"valid","type":"bool"}],"type":"function"},{"constant":true,"inputs":[{"name":"channel","type":"bytes32"}],"name":"getChannelValidUntil","outputs":[{"name":"","type":"uint256"}],"type":"function"},{"constant":false,"inputs":[{"name":"channel","type":"bytes32"}],"name":"reclaim","outputs":[],"type":"function"},{"constant":true,"inputs":[{"name":"channel","type":"bytes32"},{"name":"recipient","type":"address"},{"name":"value","type":"uint256"}],"name":"getHash","outputs":[{"name":"","type":"bytes32"}],"type":"function"},{"constant":true,"inputs":[{"name":"channel","type":"bytes32"}],"name":"getChannelOwner","outputs":[{"name":"","type":"address"}],"type":"function"},{"constant":false,"inputs":[{"name":"channel","type":"bytes32"}],"name":"deposit","outputs":[],"type":"function"},{"constant":true,"inputs":[{"name":"channel","type":"bytes32"}],"name":"getChannelValue","outputs":[{"name":"","type":"uint256"}],"type":"function"},{"inputs":[],"type":"constructor"},{"anonymous":false,"inputs":[{"indexed":true,"name":"owner","type":"address"},{"indexed":false,"name":"channel","type":"bytes32"}],"name":"NewChannel","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"name":"owner","type":"address"},{"indexed":true,"name":"channel","type":"bytes32"}],"name":"Deposit","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"name":"channel","type":"bytes32"}],"name":"Reclaim","type":"event"}]);
 var channel = channelContract.at("0x5dfbd0f3cc46fcca726cfce023089c51e45ed0ef");
 
-function sign(c, account, recipient, amount) {
-	var sig = eth.sign(account, channel.getHash(c, recipient, amount));
+function sign(c, account, recipient, value) {
+	var sig = eth.sign(account, channel.getHash(c, recipient, value));
 	sig = sig.substr(2, sig.length);
 
 	var res = {};
@@ -13,22 +13,22 @@ function sign(c, account, recipient, amount) {
 	return res
 }
 
-var PaymentChannel = function(ethAccount, me, recipient, role) {
-    if( role !== PaymentChannel.payer && role !== PaymentChannel.beneficiary ) {
+var PaymentChannel = function(opts) {
+    if( opts.role !== PaymentChannel.payer && opts.role !== PaymentChannel.beneficiary ) {
         throw "PaymentChannel requires role to be set to either 'beneficiary' or 'payer'";
     }
 
-    this.account = ethAccount;
+    this.account = opts.account;
     this.recipient = undefined;
-    this.me = me;
-    this.them = recipient;
-    this.role = role;
+    this.me = opts.me;
+    this.them = opts.them;
+    this.role = opts.role;
     this.numPays = 0;
     this.channelId = undefined;
-
-
-    return this;
-};
+    this.payment = opts.payment;
+    if( this.payment === undefined )
+        this.payment = {};
+}
 
 PaymentChannel.prototype.start = function() {
     if( this.role === PaymentChannel.beneficiary )
@@ -77,9 +77,25 @@ PaymentChannel.prototype.setupBeneficiary = function() {
             var payment = JSON.parse(web3.toAscii(res.payload));
 
             var error;
-            if( !channel.verify(paymentChannel.channelId, paymentChannel.account, payment.amount, payment.sig.v, payment.sig.r, payment.sig.s) ) {
+            if( !channel.verify(paymentChannel.channelId, paymentChannel.account, payment.value, payment.sig.v, payment.sig.r, payment.sig.s) ) {
                 error = "Payment received invalid";
+            } else if( channel.getChannelValue(paymentChannel.channelId) < payment.value ) {
+                error = "Channel has insufficient funds";
+            } else if( paymentChannel.lastPayment ){
+                var last = paymentChannel.lastPayment;
+
+                if( last.value >= payment.value ) {
+                    error = "Last payment greater or equal to current";
+                } else if( payment.value - last.value < paymentChannel.payment.inc ) {
+                    error = "Increment too low";
+                }
+            } else {
+                if( payment.value < paymentChannel.payment.base ) {
+                    error = "Base payment is too low";
+                }
             }
+            paymentChannel.lastPayment = payment;
+
             if( paymentChannel.onPayment(error, payment) ) {
                 paymentChannel.post();
             }
@@ -109,7 +125,7 @@ PaymentChannel.prototype.setupPayer = function() {
             paymentChannel.createChannel(ev.args.channel);
         });
         // create channel on ethereum network
-        channel.createChannel({from:paymentChannel.account, gas:1000000});
+        channel.createChannel({from:paymentChannel.account, value: paymentChannel.payment.value, gas:1000000});
     });
 };
 
@@ -129,10 +145,11 @@ PaymentChannel.prototype.createChannel = function(channelName) {
             return;
         }
 
+        var p = paymentChannel.payment;
 
-        var amount = 100 + (10 * paymentChannel.numPays);
+        var value = p.base + (p.inc * paymentChannel.numPays);
         // create transaction for the payment channel
-        var payment = JSON.stringify({sig: sign(paymentChannel.channelId, paymentChannel.account, paymentChannel.recipient, amount), amount: amount});
+        var payment = JSON.stringify({sig: sign(paymentChannel.channelId, paymentChannel.account, paymentChannel.recipient, value), value: value});
         // broadcast payment to recipient
         shh.post({
             from: paymentChannel.me,
@@ -140,6 +157,7 @@ PaymentChannel.prototype.createChannel = function(channelName) {
             topics:[PaymentChannel.name, paymentChannel.channelId, "payment"],
             payload: web3.toHex(payment),
         });
+        paymentChannel.numPays++;
 
         // update timeout handler
         timeout = createTimeout(paymentChannel);

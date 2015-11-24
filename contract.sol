@@ -24,28 +24,28 @@ contract Channel {
 		NewChannel(msg.sender, channel);
 	}
 
-	// creates a hash using the recipient and amount.
-	function getHash(bytes32 channel, address recipient, uint amount) constant returns(bytes32) {
-		return sha3(channel, recipient, amount);
+	// creates a hash using the recipient and value.
+	function getHash(bytes32 channel, address recipient, uint value) constant returns(bytes32) {
+		return sha3(channel, recipient, value);
 	}
 
-	// verify a message (receipient || amount) with the provided signature
-	function verify(bytes32 channel, address recipient, uint amount, uint8 v, bytes32 r, bytes32 s) constant returns(bool) {
+	// verify a message (receipient || value) with the provided signature
+	function verify(bytes32 channel, address recipient, uint value, uint8 v, bytes32 r, bytes32 s) constant returns(bool) {
 		PaymentChannel ch = channels[channel];
-		return ch.valid && ch.validUntil > block.timestamp && ch.owner == ecrecover(getHash(channel, recipient, amount), v, r, s);
+		return ch.valid && ch.validUntil > block.timestamp && ch.owner == ecrecover(getHash(channel, recipient, value), v, r, s);
 	}
 
 	// claim funds
-	function claim(bytes32 channel, address recipient, uint amount, uint8 v, bytes32 r, bytes32 s) {
-		if( !verify(channel, recipient, amount, v, r, s) ) return;
+	function claim(bytes32 channel, address recipient, uint value, uint8 v, bytes32 r, bytes32 s) {
+		if( !verify(channel, recipient, value, v, r, s) ) return;
 
 		PaymentChannel ch = channels[channel];
-		if( amount > ch.value ) {
+		if( value > ch.value ) {
 			recipient.send(ch.value);
 			ch.value = 0;
 		} else {
-			recipient.send(amount);
-			ch.value -= amount;
+			recipient.send(value);
+			ch.value -= value;
 		}
 
 		// channel is no longer valid

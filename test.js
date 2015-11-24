@@ -7,12 +7,32 @@ var receiver = shh.newIdentity()
     numbers = [3,1,4,1,5,9,2,6,5,3,5,8,9,7,9,3,2,3,8];
     index = 0;
 
-var tx = new PaymentChannel(eth.accounts[0], sender, receiver, PaymentChannel.payer);
+var tx = new PaymentChannel({
+    account: eth.accounts[0], 
+    me: sender,
+    them: receiver,
+    role: PaymentChannel.payer,
+    payment: {
+        value: web3.toWei(1, "ether"),
+        base: 100,
+        inc: 10,
+    },
+});
 tx.onPayload = function(payload) {
     console.log("received data", payload);
     return true;
 };
-var rx = new PaymentChannel(eth.accounts[0], receiver, sender, PaymentChannel.beneficiary);
+
+var rx = new PaymentChannel({
+    account: eth.accounts[0],
+    me: receiver,
+    them: sender,
+    role: PaymentChannel.beneficiary,
+    payment: {
+        base: 100,
+        inc: 10,
+    },
+});
 rx.onPayment = function(error, payment) {
     if( error ) {
         console.log("invalid payment:", error);
