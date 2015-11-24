@@ -31,7 +31,7 @@ var id = shh.filter({topics: [name, "setup"]}, function(error, res) {
     // get the nonce
 	var nonce = eth.getTransactionCount(eth.accounts[0]);
 
-    var filter = channel.NewChannel({}, function(e, ev) {
+    var filter = channel.NewChannel({owner: eth.accounts[0]}, function(e, ev) {
         console.log("new channel created:");
         inspect(res);
 
