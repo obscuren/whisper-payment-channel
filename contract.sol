@@ -11,6 +11,7 @@ contract Channel {
 
 	event NewChannel(address indexed owner, bytes32 channel);
 	event Deposit(address indexed owner, bytes32 indexed channel);
+    event Claim(address indexed who, bytes32 indexed channel);
 	event Reclaim(bytes32 indexed channel);
 
 	function Channel() {
@@ -50,6 +51,8 @@ contract Channel {
 
 		// channel is no longer valid
 		channels[channel].valid = false;
+
+        Claim(recipient, channel);
 	}
 
 	function deposit(bytes32 channel) {
